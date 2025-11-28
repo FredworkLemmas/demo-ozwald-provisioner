@@ -1,0 +1,204 @@
+---
+hosts:
+  - name: jamma
+    ip: 192.168.0.211
+
+  - name: bitty
+    ip: 192.168.0.254
+
+  - name: daneel
+    ip: 192.168.0.214
+
+services:
+  - service_name: qwen1.5-vllm
+    type: vllm-openai-compat
+    description: DeepSeek Qwen 1.5B
+    parameters:
+      model_name: "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
+    profiles:
+      - name: embed
+        parameters:
+          gpu: True
+          cpu_offload_gb: None
+          gpu_memory_utilization: 0.7
+          max_model_len: 1100
+      - name: no-gpu
+        parameters:
+          gpu: False
+      - name: fast-gpu
+        parameters:
+          gpu: True
+          cpu_offload_gb: None
+          gpu_memory_utilization: 0.9
+      - name: max-context-window
+        parameters:
+          max_model_len: None
+      - name: small-context-window
+        parameters:
+          max_model_len: 15000
+  - service_name: qwen7-vllm
+    type: vllm-openai-compat
+    description: DeepSeek Qwen 7B
+    parameters:
+      model_name: "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B"
+    profiles:
+      - name: no-gpu
+        parameters:
+          gpu: False
+      - name: fast-gpu
+        parameters:
+          gpu: True
+          cpu_offload_gb: None
+          gpu_memory_utilization: 0.9
+      - name: max-context-window
+        parameters:
+          max_model_len: None
+      - name: small-context-window
+        parameters:
+          max_model_len: 15000
+  - service_name: fiction-sources
+    type: source-files
+    description: Fiction sources in EPUB format
+    parameters:
+      directory: sources/
+  - service_name: chunker
+    type: chunker
+    description: Chunker service
+    parameters:
+      sources: ['fiction-sources']
+      chunk_size: 1000
+      chunk_overlap: 500
+  - service_name: sqlite-vector
+    type: sqlite-vector
+    description: SQLite vector database
+    parameters:
+      dimension: 768
+
+actions:
+  - name: initial-rag-ingestion
+    type: ingest-rag
+    description: Ingest a chunked fiction source into a vector database
+  - name: expose-api
+    type: expose-api
+    description: Expose an API for querying the vector database
+
+
+orchestrator:
+  host_name: jamma
+  port: 9360
+  cache:
+    type: redis
+    parameters:
+      host: jamma
+      port: 6679
+      db: 0
+
+  provisioners:
+    - name: bitty
+      host: bitty
+      cache:
+        type: redis
+        parameters:
+          host: jamma
+          port: 6679
+          db: 0
+    - name: jamma
+      host: jamma
+      cache:
+        type: redis
+        parameters:
+          host: jamma
+          port: 6679
+          db: 0
+    - name: daneel
+      host: daneel
+      cache:
+        type: redis
+        parameters:
+          host: jamma
+          port: 6679
+          db: 0
+
+  modes:
+    - name: initial-rag-ingestion
+      services:
+        - name: embed-1
+          service_name: qwen1.5-vllm
+          profile: embed
+          host: jamma
+          parameters:
+            gpu_id: ':0'
+        - name: embed-2
+          service_name: qwen1.5-vllm
+          profile: embed
+          host: jamma
+          parameters:
+            gpu_id: ':1'
+        - name: embed-3
+          service_name: qwen1.5-vllm
+          profile: embed
+          host: daneel
+          parameters:
+            gpu_id: ':0'
+        - name: embed-4
+          service_name: qwen1.5-vllm
+          profile: embed
+          host: daneel
+          parameters:
+            gpu_id: ':1'
+        - name: embed-5
+          service_name: qwen1.5-vllm
+          profile: embed
+          host: daneel
+          parameters:
+            gpu_id: ':1'
+        - name: embed-6
+          service_name: qwen1.5-vllm
+          profile: embed
+          host: daneel
+          parameters:
+            gpu_id: ':1'
+        - name: embed-7
+          service_name: qwen1.5-vllm
+          profile: embed
+          host: daneel
+          parameters:
+            gpu_id: ':1'
+        - name: chunker
+          service_name: chunker
+          host: jamma
+        - name: sqlite-vector
+          service_name: sqlite-vector
+          host: jamma
+    - name: expose-api
+      services:
+        - name: embed
+          service_name: qwen1.5-vllm
+          profile: embed
+          host: jamma
+          parameters:
+            gpu_id: ':0'
+        - name: api
+          service_name: api
+          host: jamma
+          parameters:
+            port: 9360
+            host: 0.0.0.0
+            debug: True
+        - name: sqlite-vector
+          service_name: sqlite-vector
+          host: jamma
+  tasks:
+    - name: ingest-chunked-fiction
+      mode: initial-rag-ingestion
+      action: initial-rag-ingestion
+      schedule:
+        occurs: once
+        starts: pre-startup
+
+
+personas:
+  - personas/*/persona.yml
+sources:
+  - sources/*/source.yml
+
