@@ -1,4 +1,4 @@
 #-e /home/fred/Projects/ozwald
--e git+ssh://git@github.com:FredworkLemmas/ozwald.git@fred-add-cli-2025112801#egg=ozwald
+-e git+ssh://git@github.com-fredwork-lemmas/FredworkLemmas/ozwald.git@fred-bugfixes-2025113001#egg=ozwald
 invocate==0.2.1
 python-dotenv==1.1.1
