@@ -19,21 +19,29 @@ services:
     description: DeepSeek Qwen 1.5B
     parameters:
       model_name: "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
+    varieties:
+      amdgpu:
+        gpu: True
+        image: 'openai-api-vllm.amdgpu'
+      nvidia:
+        gpu: True
+        image: 'openai-api-vllm.nvidia'
+      cpuonly:
+        gpu: False
+        image: 'openai-api-vllm.cpu-only'
     profiles:
-      - name: embed
+      embed:
         parameters:
-          gpu: True
           cpu_offload_gb: None
           gpu_memory_utilization: 0.7
           max_model_len: 1100
-      - name: fast-gpu
+      fast-gpu:
         parameters:
-          gpu: True
           cpu_offload_gb: None
           gpu_memory_utilization: 0.9
-      - name: max-context-window
+      max-context-window:
         parameters:
           max_model_len: None
-      - name: small-context-window
+      small-context-window:
         parameters:
           max_model_len: 15000

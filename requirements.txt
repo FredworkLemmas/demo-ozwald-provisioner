@@ -1,0 +1,4 @@
+#-e /home/fred/Projects/ozwald
+-e git+ssh://git@github.com-fredwork-lemmas/FredworkLemmas/ozwald.git@fred-fix-config-location-2025122301#egg=ozwald
+invocate==0.2.1
+python-dotenv==1.2.1
