@@ -14,26 +14,38 @@ provisioners:
         db: 0
 
 services:
-  - service_name: qwen1.5-vllm
-    type: vllm-openai-compat
+  - name: qwen1.5-vllm
+    type: container
     description: DeepSeek Qwen 1.5B
-    parameters:
-      model_name: "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
+    varieties:
+      nvidia:
+        image: 'openai-api-vllm.nvidia'
+        environment:
+          GPU: true
+      amdgpu:
+        image: 'openai-api-vllm.amdgpu'
+        environment:
+          GPU: true
+      cpu-only:
+        image: 'openai-api-vllm.cpu-only'
+        environment:
+          GPU: false
     profiles:
-      - name: embed
-        parameters:
-          gpu: True
-          cpu_offload_gb: None
-          gpu_memory_utilization: 0.7
-          max_model_len: 1100
-      - name: fast-gpu
-        parameters:
-          gpu: True
-          cpu_offload_gb: None
-          gpu_memory_utilization: 0.9
-      - name: max-context-window
-        parameters:
-          max_model_len: None
-      - name: small-context-window
-        parameters:
-          max_model_len: 15000
+      embed:
+        environment:
+          CPU_OFFLOAD_GB: ""
+          GPU_MEMORY_UTILIZATION: 0.7
+          MAX_MODEL_LEN: 1100
+      no-gpu:
+        environment:
+          MAX_MODEL_LEN: 45000
+      fast-gpu:
+        environment:
+          CPU_OFFLOAD_GB: ""
+          GPU_MEMORY_UTILIZATION: 0.9
+      max-context-window:
+        environment:
+          MAX_MODEL_LEN: ""
+      small-context-window:
+        environment:
+          MAX_MODEL_LEN: 15000
