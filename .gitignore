@@ -6,3 +6,5 @@
 # IDE/Dev
 .idea/
 .env
+
+footprint.yml

@@ -1,0 +1,31 @@
+services:
+  openai-api-vllm-cpu-only:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile.openai-api-vllm.cpu-only
+    user: "${UID}:${GID}"
+    ports:
+      - "8100:8000"
+    environment:
+      - PORT=8000
+    volumes:
+      - $HOME/.cache/huggingface:/hf_cache
+
+  openai-api-vllm-nvidia:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile.openai-api-vllm.nvidia
+    user: "${UID}:${GID}"
+    ports:
+      - "8101:8000"
+    environment:
+      - PORT=8000
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    volumes:
+      - $HOME/.cache/huggingface:/hf_cache

@@ -1,0 +1,150 @@
+
+FROM python:3.11-slim
+
+# Set environment variables
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV UNPRIVILEGED_UID=1010
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    wget \
+    curl \
+    build-essential \
+    cmake \
+    libnuma-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update && apt-get install -y \
+    --no-install-recommends \
+    ccache \
+    ca-certificates \
+    gcc \
+    g++ \
+    libtcmalloc-minimal4 \
+    libnuma-dev \
+    ffmpeg \
+    libsm6 \
+    libxext6 \
+    libgl1 \
+    jq \
+    lsof && rm -rf /var/lib/apt/lists/*
+
+# Create a non-root user
+RUN useradd -m -u ${UNPRIVILEGED_UID} vllm && \
+    mkdir -p /app && \
+    chown -R vllm:vllm /app
+
+# Set working directory
+WORKDIR /app
+
+# Create virtual environment
+RUN python3 -m venv /venv && \
+    chown -R vllm:vllm /venv
+
+# Activate virtual environment and update PATH
+ENV PATH="/venv/bin:$PATH"
+ENV VIRTUAL_ENV="/venv"
+
+# Set environment variables for CPU-only execution
+ENV CUDA_VISIBLE_DEVICES=""
+ENV VLLM_CPU_DISABLE_AVX512=1
+ENV VLLM_TARGET_DEVICE=cpu
+
+# Set cache directories
+ENV HF_HOME=/hf_cache
+ENV TRANSFORMERS_CACHE=/hf_cache
+ENV HF_DATASETS_CACHE=/hf_cache/hub
+ENV HF_HUB_CACHE=/hf_cache/hub
+
+# Upgrade pip and install wheel in virtual environment
+RUN pip install --upgrade pip setuptools wheel setuptools_scm
+
+# Install PyTorch CPU-only version first
+RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+
+# Clone vLLM from GitHub
+RUN git clone https://github.com/vllm-project/vllm.git /vllm
+WORKDIR /vllm
+
+# Install vLLM dependencies without torch (to avoid conflicts)
+RUN pip install -e . --no-build-isolation --no-deps
+
+# Install vLLM's other dependencies manually (excluding torch)
+RUN pip install \
+    transformers \
+    tokenizers \
+    sentencepiece \
+    numpy \
+    psutil \
+    sentencepiece \
+    protobuf \
+    accelerate \
+    outlines \
+    typing_extensions \
+    filelock \
+    pyzmq \
+    msgpack \
+    cloudpickle \
+    pynvml \
+    py-cpuinfo \
+    ray \
+    pandas \
+    matplotlib
+
+WORKDIR /app
+
+# Install additional useful packages
+RUN pip install \
+    scipy \
+    fastapi \
+    uvicorn \
+    requests \
+    pydantic
+
+# Install packages that were found lacking during inference attempts
+RUN pip install \
+    prometheus-client \
+    uvloop \
+    prometheus-fastapi-instrumentator \
+    cachetools \
+    cbor2 \
+    setproctitle \
+    msgspec \
+    blake3 \
+    openai \
+    openai-harmony \
+    aiohttp \
+    pybase64 \
+    watchfiles
+
+RUN pip install partial-json-parser \
+    python-multipart \
+    gguf \
+    numba
+
+
+# Create directories for models and cache
+#RUN mkdir -p /hf_cache && chown -R vllm:vllm /hf_cache
+RUN mkdir -p /hf_cache
+
+# Set cache directories
+#ENV HF_HOME=/hf_cache
+#ENV TRANSFORMERS_CACHE=/hf_cache
+#ENV HF_DATASETS_CACHE=/hf_cache
+#ENV VLLM_LOGGING_LEVEL=DEBUG
+
+# Switch to non-root user
+#USER vllm
+
+# Expose the default port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --start-period=120s --retries=3 \
+    CMD curl -f http://localhost:${PORT:-8000}/health || exit 1
+
+# Set the entrypoint
+COPY dockerfiles/scripts/start_vllm.sh /start_vllm.sh
+ENTRYPOINT ["/start_vllm.sh"]
