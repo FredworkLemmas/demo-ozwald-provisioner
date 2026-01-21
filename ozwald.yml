@@ -17,6 +17,8 @@ services:
   - name: qwen1.5-vllm
     type: container
     description: DeepSeek Qwen 1.5B
+    environment:
+      MODEL_NAME: deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B
     varieties:
       nvidia:
         image: 'openai-api-vllm.nvidia'

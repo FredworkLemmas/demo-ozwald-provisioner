@@ -1,4 +1,6 @@
 import time
+from os.path import basename
+from typing import Any, Dict, Optional
 from pathlib import Path
 
 from invocate import task
@@ -24,9 +26,29 @@ def footprint(c):
     """
     test simple footprint request
     """
+
     time.sleep(2)
-    service = 'qwen1.5-vllm[small-context-window][nvidia]'
-    c.run(f'ozwald footprint_services {service}')
+    service = 'qwen1.5-vllm'
+    profile='small-context-window'
+    variety='nvidia'
+
+    # c.run(f'ozwald footprint_services {service} --profile {profile} --variety {variety}')
+    #c.run('rm -f footprint.yml')
+    c.run(f'ozwald footprint_services {service}[{profile}][{variety}]')
+
+@task(namespace='test', name='footprint-runner-logs')
+def footprint_logs(c):
+    service = 'qwen1.5-vllm'
+    profile='small-context-window'
+    variety='nvidia'
+    c.run(f'ozwald get_footprint_logs --log-type runner {service} --profile {profile} --variety {variety}')
+
+@task(namespace='test', name='footprint-container-logs')
+def footprint_logs(c):
+    service = 'qwen1.5-vllm'
+    profile='small-context-window'
+    variety='nvidia'
+    c.run(f'ozwald get_footprint_logs --log-type container {service} --profile {profile} --variety {variety}')
 
 @task(namespace="dev", name="build-containers")
 def build_containers(c, name=None):
@@ -52,20 +74,22 @@ def build_containers(c, name=None):
             return
 
     print(f"\nBuilding {len(dockerfiles)} container(s)...\n")
-    for dockerfile in dockerfiles:
-        container_name = dockerfile.name.replace("Dockerfile.", "")
-        image_tag = f"ozwald-{container_name}:latest"
-        print("=" * 70)
-        print(f"Building: {container_name}")
-        print(f"Image tag: {image_tag}")
-        print(f"Dockerfile: {dockerfile}")
-        print("=" * 70)
+    with c.cd(dockerfiles_dir):
+        for relpath_dockerfile in dockerfiles:
+            dockerfile = basename(relpath_dockerfile)
+            container_name = dockerfile.replace("Dockerfile.", "")
+            image_tag = f"ozwald-{container_name}:latest"
+            print("=" * 70)
+            print(f"Building: {container_name}")
+            print(f"Image tag: {image_tag}")
+            print(f"Dockerfile: {dockerfile}")
+            print("=" * 70)
 
-        result = c.run(f"docker build -f {dockerfile} -t {image_tag} .", warn=True)
-        if result.exited == 0:
-            print(f"\n✓ Successfully built {image_tag}\n")
-        else:
-            print(f"\n✗ Failed to build {image_tag}\n")
+            result = c.run(f"docker build -f {dockerfile} -t {image_tag} .", warn=True)
+            if result.exited == 0:
+                print(f"\n✓ Successfully built {image_tag}\n")
+            else:
+                print(f"\n✗ Failed to build {image_tag}\n")
 
     print("\nBuild complete!")
 
